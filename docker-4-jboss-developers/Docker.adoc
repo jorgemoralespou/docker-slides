@@ -1,0 +1,245 @@
+= Docker
+:author: Jorge Morales 
+:email: <jmorales@redhat.com>
+:description: Docker training
+:revdate: 2014-09-22
+:revnumber: 0.1
+:icons: font
+:imagesdir: ./images
+:figure-caption!:
+:deckjs_theme: web-2.0
+:scrollable:
+
+== Introduction
+
+=== What is Docker?
+Docker is an open platform for developers and sysadmins to *build, ship, and run distributed applications*. 
+Consisting of Docker Engine, a portable, lightweight runtime and packaging tool, and Docker Hub,
+ a cloud service for sharing applications and automating workflows, Docker enables apps to be quickly 
+assembled from components and eliminates the friction between development, QA, and production environments. 
+As a result, IT can ship faster and run the same app, unchanged, on laptops, data center VMs, and any cloud.
+
+=== Why do developers like it?
+With Docker, developers can build any app in any language using any toolchain. “Dockerized” apps are completely portable and can run anywhere.
+
+=== Why do sysadmins like it?
+Sysadmins use Docker to provide standardized environments for their development, QA, and production teams, 
+reducing “works on my machine” finger-pointing. By “Dockerizing” the app platform and its dependencies, 
+sysadmins abstract away differences in OS distributions and underlying infrastructure.
+
+image::docker_vs_vms.png[Docker vs VMs]
+
+== Docker in few words
+Docker environments get defined in a test file (Dockerfile) which describes which image it will be using as base (at the minimum a base operating system)
+ant then will provision the environment adding capabilities.
+
+image::1.png[]
+
+image::2.png[]
+
+Once the docker descriptor file is defined, you can build the environment (what is called a docker image) with:
+
+image::3.png[]
+
+[source,bash]
+----
+docker build -t MYIMAGENAME .
+----
+
+image::4.png[]
+
+This will create an environment image (a template of an environment) from which we will be able to create environment instances (docker containers) with:
+
+[source,bash]
+----
+docker run [OPTIONS] MYIMAGENAME [CMD]
+----
+
+We will have an environment/container running and ready to use. We can stop it, start it, delete it, recreate it, and create an image from it.
+
+As building the image is tedious, we can build the image and push it to a docker hub (the central or in our organization).
+
+image::5.png[]
+
+Once the image is in a hub, any developer can pull it down and just create a container out of it.
+
+image::6.png[]
+
+== Now the easy way
+Scenarios where we might spend some time:
+
+* Developer develops and tests his work in windows while final environment is Linux
+* Developer is working on his computer on a project, testing his code and his Mysql database gets corrupted
+* Developer needs to work on a clustered functionality, but does it in his own “single” computer
+* Developer/Ops needs to create provisioning/deployment/... scripts for final environments, but tests them in his “own” computer while developing
+* Continuous Integration Environment runs only JUnit tests as there is no environment to run automated integrated tests for functional, integration,... tests
+* Red Hat associate needs to work with a Red Hat product to validate a concept, to create a PoC, a demo, integration between products,....
+* Developer finds a bug and opens a support ticket and want to GSSO to reproduce the scenario.
+
+== Disc size
+
+image::Docker_how_it_works-Sizes.png[Docker images size]
+
+== Docker for Java Developers
+
+* Docker images = Java class
+* Docker container = Java instance
+* Docker hub = PermGen
+
+== Community images
+
+Availabe at http://www.jboss.org/docker[jboss.org/docker]
+
+image::JBoss_and_Docker.png[Jboss Community]
+
+== Community images explained
+
+image::Docker_community.png[Docker community images]
+
+== My images
+
+image::Docker_jmorales_images.png[My images]
+
+== Demos
+
+- Switchyard quickstarts
+- CD integration with DTGov
+- Summit14 
+- FSW clustering and balancing
+- RTGov example
+
+== Fig
+http://www.fig.sh/[Fig] orachestrates your containers
+
+Combine multiple containers, link them together and start and stop them at once.
+
+=== Start all of the containers
+Build, (re)create, start and attach to containers for a service.
+
+By default, `fig up` will aggregate the output of each container, and
+when it exits, all containers will be stopped. If you run `fig up -d`,
+it'll start the containers in the background and leave them running.
+
+If there are existing containers for a service, `fig up` will stop
+and recreate them (preserving mounted volumes with volumes-from),
+so that changes in `fig.yml` are picked up. If you do not want existing
+containers to be recreated, `fig up --no-recreate` will re-use existing
+containers.
+
+[source,bash]
+----
+fig up
+
+Usage: up [options] [SERVICE...]
+
+Options:
+    -d             Detached mode: Run containers in the background,
+                   print new container names.
+    --no-deps      Don`t start linked services.
+    --no-recreate  If containers already exist, don`t recreate them.
+----
+
+=== List containers
+[source,bash]
+----
+fig ps [-q] [SERVICE...] 
+----
+
+=== Delete current containers
+Remove stopped service containers.
+
+
+[source,bash]
+----
+fig rm
+Usage: rm [options] [SERVICE...]
+
+Options:
+    --force   Don`t ask to confirm removal
+    -v        Remove volumes associated with containers
+
+----
+
+=== Log current containers
+View output from containers.
+
+[source,bash]
+----
+fig logs [SERVICE...]
+----
+
+
+== Sample demo - CD and DTGov
+The purpose of this demo is to show DTGov integrated with an organization Continuous Delivery tools and process
+
+=== Current demo state
+
+image::DTGov-demo_1.png[Current state]
+
+=== Current demo code
+
+[source,yml]
+----
+mail:
+  image: jmorales/services-mail
+
+dev:
+  image: governance_demo/sy
+  volumes:
+   - /home/jboss/dev
+  ports:
+   - "19990:9990"
+   - "18080:8080"
+  hostname: dev
+
+qa:
+  image: governance_demo/sy
+  volumes:
+   - /home/jboss/qa
+  ports:
+   - "29990:9990"
+   - "28080:8080"
+  hostname: qa
+
+stage:
+  image: governance_demo/sy
+  volumes:
+   - /home/jboss/stage
+  ports:
+   - "39990:9990"
+   - "38080:8080"
+  hostname: stage
+
+nexus:
+  image: jmorales/ci_nexus
+  volumes:
+   - /home/jboss/stage
+  ports:
+   - "48080:8081"
+  hostname: nexus
+
+dtgov:
+  image: governance_demo/dtgov
+  links:
+   - mail
+   - dev
+   - qa
+   - stage
+   - nexus
+  volumes_from:
+   - dev
+   - qa
+   - stage
+  ports:
+   - "59990:9990"
+   - "59999:9999"
+   - "58080:8080"
+  hostname: dtgov
+----
+
+image::Docker_cd_demo.png[Containers]
+
+=== Desired demo
+
+image::DTGov-demo_2.png[Desired demo]
+
