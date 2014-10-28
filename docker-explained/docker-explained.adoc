@@ -54,7 +54,7 @@ image::architecture.png[Docker architecture]
 * *Docker containers*: Docker containers are similar to a directory. A Docker container holds everything that is needed for an application to run. Each container is created from a Docker image. Docker containers can be run, started, stopped, moved, and deleted. Each container is an isolated and secure application platform. *Docker containers are the run component of Docker*.
 
 == So how does Docker work?
-So far, we've learned that:
+So far, we`ve learned that:
 
 . You can *build Docker images* that hold your applications.
 . You can *share those Docker images* via Docker Hub or your own registry.
@@ -65,7 +65,7 @@ image::lifecycle.png[Docker lifecycle]
 == How does a Docker Image work?
 Docker images are *read-only templates* from which Docker containers are launched. Each image consists of a series of *layers*. Docker makes use of *union file systems* to combine these layers into a single image. (Union file systems allow files and directories of separate file systems, known as branches, to be transparently overlaid, forming a single coherent file system)
 
-When you change a Docker image a new layer gets built. Thus, rather than replacing the whole image or entirely rebuilding, as you may do with a virtual machine, only that layer is added or updated. You don't need to distribute a whole new image, just the update, making distributing Docker images faster and simpler.
+When you change a Docker image a new layer gets built. Thus, rather than replacing the whole image or entirely rebuilding, as you may do with a virtual machine, only that layer is added or updated. You don`t need to distribute a whole new image, just the update, making distributing Docker images faster and simpler.
 
 Every image starts from a base image.
 
@@ -81,6 +81,15 @@ Docker images are then *built* from these base images using a simple, descriptiv
 These instructions are stored in a file called a *Dockerfile*. Docker reads this Dockerfile when you request a build of an image, executes the instructions, and returns a final image.
 
 image::containers_2.png[Application image]
+
+== How Layers work
+When Docker mounts the rootfs, it starts read-only, as in a traditional Linux boot, but then, instead of changing the file system to read-write mode, it takes advantage of a union mount to add a read-write file system over the read-only file system. In fact there may be multiple read-only file systems stacked on top of each other. We think of each one of these file systems as a layer.
+
+image::containers_2.png[Application image]
+
+At first, the top read-write layer has nothing in it, but any time a process creates a file, this happens in the top layer. And if something needs to update an existing file in a lower layer, then the file gets copied to the upper layer and changes go into the copy. The version of the file on the lower layer cannot be seen by the applications anymore, but it is there, unchanged.
+
+We call the union of the read-write layer and all the read-only layers a *union file system*.
 
 == How does a Docker registry work?
 The Docker registry is the *store for your Docker images*. Once you build a Docker image you can *push* it to a public registry Docker Hub or to your own registry running behind your firewall.
@@ -110,7 +119,7 @@ The bare minimum the Docker client needs to tell the Docker daemon to run the co
 == What happens under the hood when we run this command?
 In order, Docker does the following:
 
-* *Pulls the base image*: Docker checks for the presence of the base image and, if it doesn't exist locally on the host, then Docker downloads it from Docker Hub. If the image already exists, then Docker uses it for the new container.
+* *Pulls the base image*: Docker checks for the presence of the base image and, if it doesn`t exist locally on the host, then Docker downloads it from Docker Hub. If the image already exists, then Docker uses it for the new container.
 * *Creates a new container*: Once Docker has the image, it uses it to create a container.
 * *Allocates a filesystem and mounts a read-write layer*: The container is created in the file system and a read-write layer is added to the image.
 * *Allocates a network / bridge interface*: Creates a network interface that allows the Docker container to talk to the local host.
@@ -194,9 +203,9 @@ Once the image is in a hub, any developer can pull it down and just create a con
 image::6.png[]
 
 == Working with images
-Docker images are the basis of containers. Docker stores downloaded images on the Docker host. If an image isn't already present on the host then it'll be downloaded from a registry: by default the Docker Hub public registry.
+Docker images are the basis of containers. Docker stores downloaded images on the Docker host. If an image isn`t already present on the host then it`ll be downloaded from a registry: by default the Docker Hub public registry.
 
-Typically these are the things that you'll want to do with images:
+Typically these are the things that you`ll want to do with images:
 
 * Creating an image
 * Uploading images to a registry
@@ -236,7 +245,7 @@ $ docker run -i -t jboss/base-jdk:7 /bin/bash
 ----
 
 == Create an image by commiting a container
-To create/update an image we first need to create a container from the base image we'd like to use.
+To create/update an image we first need to create a container from the base image we`d like to use.
 
 [source,bash]
 ----
@@ -244,14 +253,14 @@ $ docker run -t -i jboss/base /bin/bash
 root@0b2616b0e5a8:/#
 ----
 
-Inside our running container let's add some software.
+Inside our running container let`s add some software.
 
 [source,bash]
 ----
 root@0b2616b0e5a8:/# yum install -y openjdk-7-devel
 ----
 
-Once this has completed let's exit our container using the exit command. 
+Once this has completed let`s exit our container using the exit command. 
 Now we have a container with the change we want to make. We can then commit a copy of this container to an image using the docker *commit* command.
 
 [source,bash]
@@ -307,7 +316,7 @@ There is an additional file, the *.dockerignore* file, that specifies which file
 See https://docs.docker.com/reference/builder/[Official documentation]
 
 == Managing and working with images locally
-Once you have a bunch of images locally, you'll probably need to manage them in some way.
+Once you have a bunch of images locally, you`ll probably need to manage them in some way.
 
 * Listing images
 * Removing an image from the host
@@ -320,10 +329,10 @@ To list what images you have and some basic information on the images:
 [source,bash]
 ----
 $ docker images
-REPOSITORY                                             TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
-jboss/base-jdk                                         latest              78d588dd3292        9 days ago          855.5 MB
-jboss/switchyard-wildfly                               2.0.Alpha3          8e002c94e57a        12 days ago         1.064 GB
-jboss/base                                             latest              2ea8562cac7c        13 days ago         596.4 MB
+REPOSITORY                TAG                 IMAGE ID         CREATED       VIRTUAL SIZE
+jboss/base-jdk            latest              78d588dd3292     9 days ago    855.5 MB
+jboss/switchyard-wildfly  2.0.Alpha3          8e002c94e57a     12 days ago   1.064 GB
+jboss/base                latest              2ea8562cac7c     13 days ago   596.4 MB
 ---- 
 
 == Removing an image from the host
@@ -347,9 +356,9 @@ You can also add a tag to an existing image after you commit or build it. We can
 $ docker tag jboss/base-jdk jboss/base-jdk:7
 
 $ docker images
-REPOSITORY                                             TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
-jboss/base-jdk                                         latest              78d588dd3292        9 days ago          855.5 MB
-jboss/base-jdk                                         7                   78d588dd3292        9 days ago          855.5 MB
+REPOSITORY               TAG      IMAGE ID        CREATED      VIRTUAL SIZE
+jboss/base-jdk           latest   78d588dd3292    9 days ago   855.5 MB
+jboss/base-jdk           7        78d588dd3292    9 days ago   855.5 MB
 ----
 
 == History of an image
@@ -358,20 +367,20 @@ Sometimes it is useful to see the history (composing layers) of an image.
 [source,bash]
 ----
 $ docker history jboss/base
-IMAGE               CREATED             CREATED BY                                      SIZE
-2ea8562cac7c        13 days ago         /bin/sh -c #(nop) USER jboss                    0 B
-4d37cbbfc67d        13 days ago         /bin/sh -c #(nop) WORKDIR /opt/jboss            0 B
-379edb00ab07        13 days ago         /bin/sh -c groupadd -r jboss -g 1000 && usera   295 kB
-cd5bb934bb67        13 days ago         /bin/sh -c yum -y install xmlstarlet saxon au   21.35 MB
-20a1abe1d9bf        13 days ago         /bin/sh -c yum -y update && yum clean all       200.7 MB
-1ef0a50fe8b1        13 days ago         /bin/sh -c #(nop) MAINTAINER Marek Goldmann <   0 B
-7d3f07f8de5f        3 weeks ago         /bin/sh -c #(nop) ADD file:285fdeab65d637727f   374.1 MB
-782cf93a8f16        3 weeks ago         /bin/sh -c #(nop) MAINTAINER Lokesh Mandvekar   0 B
-511136ea3c5a        16 months ago                                                       0 B
+IMAGE           CREATED        CREATED BY                                      SIZE
+2ea8562cac7c    13 days ago    /bin/sh -c #(nop) USER jboss                    0 B
+4d37cbbfc67d    13 days ago    /bin/sh -c #(nop) WORKDIR /opt/jboss            0 B
+379edb00ab07    13 days ago    /bin/sh -c groupadd -r jboss -g 1000 && usera   295 kB
+cd5bb934bb67    13 days ago    /bin/sh -c yum -y install xmlstarlet saxon au   21.35 MB
+20a1abe1d9bf    13 days ago    /bin/sh -c yum -y update && yum clean all       200.7 MB
+1ef0a50fe8b1    13 days ago    /bin/sh -c #(nop) MAINTAINER Marek Goldmann <   0 B
+7d3f07f8de5f    3 weeks ago    /bin/sh -c #(nop) ADD file:285fdeab65d637727f   374.1 MB
+782cf93a8f16    3 weeks ago    /bin/sh -c #(nop) MAINTAINER Lokesh Mandvekar   0 B
+511136ea3c5a    16 months ago                                                  0 B
 ----
 
 == Working with registries
-When working with docker, you'll usually have a central hub (repository) to host your images. There are some commands to work with repositories in order to:
+When working with docker, you`ll usually have a central hub (repository) to host your images. There are some commands to work with repositories in order to:
 
 * Publish an image
 * Get a new image
@@ -383,7 +392,7 @@ In order to be able to operate with a registry, there are two additional command
 * logout
 
 == Publishing an image
-Once you've built or created a new image you can push it to a Docker Hub using the docker push command. This allows you to share it with others, either publicly, or push it into a private repository.
+Once you`ve built or created a new image you can push it to a Docker Hub using the docker push command. This allows you to share it with others, either publicly, or push it into a private repository.
 
 [source,bash]
 ----
@@ -406,10 +415,10 @@ Sometimes you want to search the  repository for an image. There might be multip
 [source,bash]
 ----
 $ docker search jboss
-NAME                                  DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
-jboss/wildfly                         WildFly application server image                35                   [OK]
-jboss/torquebox                       Ruby application platform                       6                    [OK]
-jboss/liveoak-server                  Backend as a Service                            3                    [OK]
+NAME                     DESCRIPTION                        STARS  OFFICIAL AUTOMATED
+jboss/wildfly            WildFly application server image   35              [OK]
+jboss/torquebox          Ruby application platform          6               [OK]
+jboss/liveoak-server     Backend as a Service               3               [OK]
 ----
 
 == Using a custom repository
@@ -440,8 +449,8 @@ $ docker pull my.registry.com:5000/jboss/base
 [source,bash]
 ----
 $ docker images
-REPOSITORY                                             TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
-my.registry.com:5000jboss/base-jdk                     latest              78d588dd3292        9 days ago          855.5 MB
+REPOSITORY                          TAG     IMAGE ID      CREATED             VIRTUAL SIZE
+my.registry.com:5000jboss/base-jdk  latest  78d588dd3292  9 days ago          855.5 MB
 ----
 
 == Working with containers
@@ -493,7 +502,7 @@ This command will output the container ID as the result of the execution.
 NOTE: Running containers in foreground is most effective for development purposes, whilst in background for any real/productive work.
 
 == Options when running a container
-There are many options that you can specify to the run command to modify it's behavior.
+There are many options that you can specify to the run command to modify it`s behavior.
 
 === Delete the container when stop
 When we create a container and run it in foreground, we might want to delete it after we are done with it. To do so, we can instruct run to delete the created container. 
@@ -635,8 +644,8 @@ We can list all of the containers, or just those that are running (by default).
 $ docker ps
 $ docker ps -a
 
-CONTAINER ID        IMAGE                   COMMAND                CREATED             STATUS              PORTS                                                                                            NAMES
-599d3f0f5935        jmorales/fsw_sy:6.0.2   "/home/jboss/jboss-e   4 seconds ago       Up 4 seconds        0.0.0.0:8080->8080/tcp, 0.0.0.0:8787->8787/tcp, 0.0.0.0:9990->9990/tcp, 0.0.0.0:9999->9999/tcp   fsw_sy   
+CONTAINER ID  IMAGE            COMMAND              CREATED             STATUS         PORTS                                                                                                      NAMES
+599d3f0f5935  jmorales/fsw_sy  "/home/jboss/jboss-e 4 seconds ago       Up 4 seconds        0.0.0.0:8080->8080/tcp, 0.0.0.0:8787->8787/tcp, 0.0.0.0:9990->9990/tcp, 0.0.0.0:9999->9999/tcp   fsw_sy   
 ----
 
 == docker ps (--help)
@@ -665,24 +674,58 @@ Creates a writable container layer (and prints the container’s ID to STDOUT), 
 
 [source,bash]
 ----
-$ docker exec -it fsw_sy bash
+$ docker create -it -p 8080:8080 -p 9990:9990 jboss/switchyard 
 ----
 
 This is very handy when we want to automate the creation and then start and stop of containers.
 
 NOTE: This option has been introduced in docker 1.3
 
-== docker exec (--help)
+== docker create (--help)
 
 [source,bash]
 ----
-Usage: docker exec [OPTIONS] CONTAINER COMMAND [ARG...]
+Usage: docker create [OPTIONS] IMAGE [COMMAND] [ARG...]
 
-Run a command in an existing container
+Create a new container
 
-  -d, --detach=false         Detached mode: run command in the background
+  -a, --attach=[]            Attach to STDIN, STDOUT or STDERR.
+  --add-host=[]              Add a custom host-to-IP mapping (host:ip)
+  -c, --cpu-shares=0         CPU shares (relative weight)
+  --cap-add=[]               Add Linux capabilities
+  --cap-drop=[]              Drop Linux capabilities
+  --cidfile=""               Write the container ID to the file
+  --cpuset=""                CPUs in which to allow execution (0-3, 0,1)
+  --device=[]                Add a host device to the container (e.g. --device=/dev/sdc:/dev/xvdc)
+  --dns=[]                   Set custom DNS servers
+  --dns-search=[]            Set custom DNS search domains
+  -e, --env=[]               Set environment variables
+  --entrypoint=""            Overwrite the default ENTRYPOINT of the image
+  --env-file=[]              Read in a line delimited file of environment variables
+  --expose=[]                Expose a port from the container without publishing it to your host
+  -h, --hostname=""          Container host name
   -i, --interactive=false    Keep STDIN open even if not attached
+  --link=[]                  Add link to another container in the form of name:alias
+  --lxc-conf=[]              (lxc exec-driver only) Add custom lxc options --lxc-conf="lxc.cgroup.cpuset.cpus = 0,1"
+  -m, --memory=""            Memory limit (format: <number><optional unit>, where unit = b, k, m or g)
+  --name=""                  Assign a name to the container
+  --net="bridge"             Set the Network mode for the container
+                               "bridge": creates a new network stack for the container on the docker bridge
+                               "none": no networking for this container
+                               "container:<name|id>": reuses another container network stack
+                               "host": use the host network stack inside the container.  Note: the host mode gives the container full access to local system services such as D-bus and is therefore considered insecure.
+  -P, --publish-all=false    Publish all exposed ports to the host interfaces
+  -p, --publish=[]           Publish a container`s port to the host
+                               format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort | containerPort
+                               (use "docker port" to see the actual mapping)
+  --privileged=false         Give extended privileges to this container
+  --restart=""               Restart policy to apply when a container exits (no, on-failure[:max-retry], always)
+  --security-opt=[]          Security Options
   -t, --tty=false            Allocate a pseudo-TTY
+  -u, --user=""              Username or UID
+  -v, --volume=[]            Bind mount a volume (e.g., from the host: -v /host:/container, from Docker: -v /container)
+  --volumes-from=[]          Mount volumes from the specified container(s)
+  -w, --workdir=""           Working directory inside the container
 ----
 
 == Start a container
@@ -701,8 +744,8 @@ Usage: docker start [OPTIONS] CONTAINER [CONTAINER...]
 
 Restart a stopped container
 
-  -a, --attach=false         Attach container's STDOUT and STDERR and forward all signals to the process
-  -i, --interactive=false    Attach container's STDIN
+  -a, --attach=false         Attach container`s STDOUT and STDERR and forward all signals to the process
+  -i, --interactive=false    Attach container`s STDIN
 ----
 
 == Stop a container
@@ -753,7 +796,7 @@ Once you have a container running in background, you might want to attach to it.
 $ docker attach fsw_sy
 ----
 
-If you are attached to the container, you'll forward all the signals to the process, and STDOUT and STDERR to the console.
+If you are attached to the container, you`ll forward all the signals to the process, and STDOUT and STDERR to the console.
 
 == docker attach (--help)
 
@@ -848,7 +891,7 @@ A /.bash_history
 ----
 Usage: docker diff CONTAINER
 
-Inspect changes on a container's filesystem
+Inspect changes on a container`s filesystem
 ----
 
 == Copy files from a container
@@ -983,12 +1026,182 @@ Kernel Version: 3.16.6-200.fc20.x86_64
 Operating System: Fedora 20 (Heisenbug)
 ----
 
+== Linking containers
+Docker has a linking system that allows you to link multiple containers together and send connection information from one to another. When containers are linked, information about a source container can be sent to a recipient container. This allows the recipient to see selected data describing aspects of the source container.
+
+=== Container naming
+To establish links, Docker relies on the names of your containers. You can name containers yourself. This naming provides two useful functions:
+
+. It can be useful to name containers that do specific functions in a way that makes it easier for you to remember them.
+. It provides Docker with a reference point that allows it to refer to other containers.
+
+You can name your container by using the --name flag
+
+[source,bash]
+----
+$ docker run -d -P --name switchyard jboss/switchyard-wildfly
+----
+
+This launches a new container and uses the --name flag to name the container switchyard.
+
+NOTE: Container names have to be unique.
+
+=== Container Linking
+Links allow containers to discover each other and securely transfer information about one container to another container. When you set up a link, you create a conduit between a source container and a recipient container. The recipient can then access select data about the source. To create a link, you use the --link flag
+
+The --link flag takes the form:
+
+[source,bash]
+----
+--link name:alias
+----
+
+Where name is the name of the container we're linking to and alias is an alias for the link name.
+
+Docker exposes connectivity information for the source container to the recipient container in two ways:
+
+* Environment variables
+* Updating the /etc/hosts file
+
+=== Environment Variables
+When two containers are linked, Docker will set some environment variables in the target container to enable programmatic discovery of information related to the source container.
+
+* First, Docker will set an *<alias>_NAME* environment variable specifying the alias of each target container that was given in a `--link` parameter. 
+
+* Docker will then also define a set of environment variables for each port that is exposed by the source container. The pattern followed is:
+** __<name>_PORT_<port>_<protocol>__ will contain a URL reference to the port. Where <name> is the alias name specified in the --link parameter (e.g. db), <port> is the port number being exposed, and <protocol> is either TCP or UDP. The format of the URL will be: `<protocol>://<container_ip_address>:<port>` (e.g. tcp://172.17.0.82:1521). This URL will then be split into the following 3 environment variables for convinience:
+*** __<name>_PORT_<port>_<protocol>_ADDR__ will contain just the IP address from the URL (e.g. __DB_PORT_1521=172.17.0.82__).
+*** __<name>_PORT_<port>_<protocol>_PORT__ will contain just the port number from the URL (e.g. __DB_PORT_1521_TCP_PORT=1521__).
+*** __<name>_PORT_<port>_<protocol>_PROTO__ will contain just the protocol from the URL (e.g. __DB_PORT_1521_TCP_PROTO=tcp__).
+If there are multiple ports exposed then the above set of environment variables will be defined for each one.
+
+NOTE: These Environment variables are only set for the first process in the container.
+
+You can use these environment variables to configure your applications to connect to the database on the db container. The connection will be secure and private; only the linked container will be able to talk to the db container
+
+=== Updating the /etc/hosts file
+In addition to the environment variables, Docker adds a host entry for the source container to the /etc/hosts file.
+
+NOTE: You can link multiple recipient containers to a single source. For example, you could have multiple (differently named) web containers attached to your db container.
+
+If you restart the source container, the linked containers /etc/hosts files will be automatically updated with the source container's new IP address, allowing linked communication to continue.
+
+== Working with volumes
+You can manage data inside and between your Docker containers in two ways.
+
+* Data volumes
+* Data volume containers.
+
+== Data volumes
+A data volume is a specially-designated directory within one or more containers that bypasses the Union File System to provide several useful features for persistent or shared data:
+
+* Data volumes can be shared and reused between containers
+* Changes to a data volume are made directly
+* Changes to a data volume will not be included when you update an image
+* Volumes persist until no containers use them
+
+=== Adding a data volume
+You can add a data volume to a container using the -v flag with the docker run command. You can use the -v multiple times in a single docker run to mount multiple data volumes.
+
+[source,bash]
+----
+$ docker run -d -P --name web -v /webapp jboss/base-jdk java -jar myapp.jar
+----
+
+NOTE: You can also use the VOLUME instruction in a Dockerfile to add one or more new volumes to any container created from that image.
+
+=== Mount a Host Directory as a Data Volume
+In addition to creating a volume using the -v flag you can also mount a directory from your own host into a container.
+
+[source,bash]
+----
+$ docker run -d -P --name web -v $(pwd)/deployments:/opt/jboss/wildfly/standalone/deployments jboss/wildfly
+----
+
+The directory on the host must be specified as an absolute path and if the directory doesn't exist Docker will automatically create it for you.
+
+Docker defaults to a read-write volume but we can also mount a directory read-only.
+
+[source,bash]
+----
+$ docker run -d -P --name web -v $(pwd)/deployments:/opt/jboss/wildfly/standalone/deployments:ro jboss/wildfly
+----
+
+=== Mount a Host File as a Data Volume
+The -v flag can also be used to mount a single file, instead of just directories, from the host machine.
+
+[source,bash]
+----
+$ docker run --rm -it -v ~/.bash_history:/.bash_history fedora /bin/bash
+----
+
+NOTE: In the case where you want to edit the mounted file, it is often easiest to instead mount the parent directory
+
+== Data volume containers
+If you have some persistent data that you want to share between containers, or want to use from non-persistent containers, it's best to create a named Data Volume Container, and then to mount the data from it.
+
+[source,bash]
+----
+$ docker run -d -v /data --name data fedora echo "Data-only container"
+----
+
+You can then use the `--volumes-from` flag to mount the /data volume in another container.
+
+[source,bash]
+----
+$ docker run -d --volumes-from data --name my_app fedora
+----
+
+You can use multiple `--volumes-from` parameters to bring together multiple data volumes from multiple containers.
+
+You can also extend the chain by mounting the volume that came from the data container in yet another container.
+
+If you remove containers that mount volumes, including the initial data container, or the subsequent containers, the volumes will not be deleted. To delete the volume from disk, you must explicitly call `docker rm -v` against the last container with a reference to the volume. This allows you to upgrade, or effectively migrate data volumes between containers.
+
+== Backup, restore, or migrate data volumes
+Another useful function we can perform with volumes is use them for backups, restores or migrations. We do this by using the `--volumes-from` flag to create a new container that mounts that volume, like so:
+
+[source,bash]
+----
+$ docker run --volumes-from data -v $(pwd):/backup fedora tar cvf /backup/backup.tar /data
+----
+
+Here we've launched a new container and mounted the volume from the data container. We've then mounted a local host directory as /backup. Finally, we've passed a command that uses tar to backup the contents of the data volume to a backup.tar file inside our /backup directory. When the command completes and the container stops we'll be left with a backup of our data volume.
+
+You could then restore it to the same container, or another that you've made elsewhere. Create a new container.
+
+[source,bash]
+----
+$ docker run -v /data --name data2 fedora /bin/bash
+----
+
+Then un-tar the backup file in the new container's data volume.
+
+[source,bash]
+----
+$ docker run --volumes-from data2 -v $(pwd):/backup fedora tar xvf /backup/backup.tar
+----
+
+You can use these technique to automate backup, migration and restore testing using your preferred tools.
+
 == Disc size
+The disc space used by docker images is not the sum of the disc space that uses every image, as there are shared layers amongst images, and the space that uses this shared images needs only to be counted once.
+
+When we list the images, we can see a *virtual size* that is the size of the image if you export it, so the size of the "COMPLETE" image. 
+
+[source,bash]
+----
+$ docker images
+REPOSITORY        TAG       IMAGE ID       CREATED       VIRTUAL SIZE
+registry          latest    8e9a29f977a7   3 days ago    427.9 MB
+jboss/base-jdk    latest    78d588dd3292   10 days ago   855.5 MB
+jmorales/fedora   latest    2e976b087a03   11 days ago   574.3 MB
+----
 
 image::Docker_how_it_works-Sizes.png[Docker images size]
 
 == Docker file structure
-Docker uses the host file system to store all it's information. It does it under */var/lib/docker/*
+Docker uses the host file system to store all it`s information. It does it under */var/lib/docker/*
 
 * */var/lib/docker/containers/*: Holds runtime information for the container (hosts, resolv.conf, log files, runtime config,...)
 * */var/lib/docker/devicemapper/*: Holds the images files and metadata (This metadata for the Union File System used: devicemapper)
@@ -997,19 +1210,203 @@ Docker uses the host file system to store all it's information. It does it under
 * */var/lib/docker/vfs/*: Holds volume file systems.
 * */var/lib/docker/volumes/*: Holds volume metadata.
 
-
-== Problem solving
-Scenarios where we might spend some time:
-
-* Developer develops and tests his work in windows while final environment is Linux
-* Developer is working on his computer on a project, testing his code and his Mysql database gets corrupted
-* Developer needs to work on a clustered functionality, but does it in his own “single” computer
-* Developer/Ops needs to create provisioning/deployment/... scripts for final environments, but tests them in his “own” computer while developing
-* Continuous Integration Environment runs only JUnit tests as there is no environment to run automated integrated tests for functional, integration,... tests
-* Red Hat associate needs to work with a Red Hat product to validate a concept, to create a PoC, a demo, integration between products,....
-* Developer finds a bug and opens a support ticket and want to GSSO to reproduce the scenario.
+== Guidance for Docker Image Authors
+=== Containers should be ephemeral
+The container produced by the image your Dockerfile defines should be as ephemeral as possible. By “ephemeral,” we mean that it can be stopped and destroyed and a new one built and put in place with an absolute minimum of set-up and configuration.
 
 == Guidance for Docker Image Authors
+=== Use a .dockerignore file
+For faster uploading and efficiency during docker build, you should use a .dockerignore file to exclude files or directories from the build context and final image. For example, unless.git is needed by your build process or scripts, you should add it to .dockerignore, which can save many megabytes worth of upload time.
+
+== Guidance for Docker Image Authors
+=== Avoid installing unnecessary packages
+In order to reduce complexity, dependencies, file sizes, and build times, you should avoid installing extra or unnecessary packages just because they might be “nice to have.” For example, you don’t need to include a text editor in a database image.
+
+== Guidance for Docker Image Authors
+=== Run only one process per container
+In almost all cases, you should only run a single process in a single container. Decoupling applications into multiple containers makes it much easier to scale horizontally and reuse containers. If that service depends on another service, make use of container linking.
+
+== Guidance for Docker Image Authors
+=== Minimize the number of layers
+You need to find the balance between readability (and thus long-term maintainability) of the Dockerfile and minimizing the number of layers it uses. Be strategic and cautious about the number of layers you use.
+
+== Guidance for Docker Image Authors
+=== Sort multi-line arguments
+Whenever possible, ease later changes by sorting multi-line arguments alphanumerically. This will help you avoid duplication of packages and make the list much easier to update. This also makes PRs a lot easier to read and review. Adding a space before a backslash (\) helps as well.
+
+[source,bash]
+----
+RUN yum update && yum install -y \
+  bzr \
+  cvs \
+  git \
+  mercurial \
+  subversion
+----
+
+== Guidance for Docker Image Authors
+=== Build cache
+During the process of building an image Docker will step through the instructions in your Dockerfile executing each in the order specified. As each instruction is examined Docker will look for an existing image in its cache that it can reuse, rather than creating a new (duplicate) image. If you do not want to use the cache at all you can use the --no-cache=true option on the docker build command.
+
+However, if you do let Docker use its cache then it is very important to understand when it will, and will not, find a matching image. The basic rules that Docker will follow are outlined below:
+
+* Starting with a base image that is already in the cache, the next instruction is compared against all child images derived from that base image to see if one of them was built using the exact same instruction. If not, the cache is invalidated.
+
+* In most cases simply comparing the instruction in the Dockerfile with one of the child images is sufficient. However, certain instructions require a little more examination and explanation.
+
+** In the case of the ADD and COPY instructions, the contents of the file(s) being put into the image are examined. Specifically, a checksum is done of the file(s) and then that checksum is used during the cache lookup. If anything has changed in the file(s), including its metadata, then the cache is invalidated.
+
+** Aside from the ADD and COPY commands cache checking will not look at the files in the container to determine a cache match. For example, when processing a RUN apt-get -y update command the files updated in the container will not be examined to determine if a cache hit exists. In that case just the command string itself will be used to find a match.
+
+* Once the cache is invalidated, all subsequent Dockerfile commands will generate new images and the cache will not be used.
+
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - FROM
+Whenever possible, use current Official Repositories as the basis for your image.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - RUN
+As always, to make your Dockerfile more readable, understandable, and maintainable, put long or complex RUN statements on multiple lines separated with backslashes.
+
+Probably the most common use-case for RUN is an application of yum. When using yum, here are a few things to keep in mind:
+
+* Don’t do RUN yum update on a single line. This will cause caching issues if the referenced archive gets updated, which will make your subsequent yum install fail without comment.
+
+* Avoid RUN yum upgrade or dist-sync, since many of the “essential” packages from the base images will fail to upgrade inside an unprivileged container. If a base package is out of date, you should contact its maintainers. If you know there’s a particular package, foo, that needs to be updated, use yum install -y foo and it will update automatically.
+
+* Do write instructions like:
++
+[source,bash]
+----
+RUN yum update && yum install -y package-bar package-foo package-baz
+----
++
+Writing the instruction this way not only makes it easier to read and maintain, but also, by including apt-get update, ensures that the cache will naturally be busted and the latest versions will be installed with no further coding or manual intervention required.
++
+Further natural cache-busting can be realized by version-pinning packages (e.g., package-foo=1.3.\*). This will force retrieval of that version regardless of what’s in the cache. Writing your yum code this way will greatly ease maintenance and reduce failures due to unanticipated changes in required packages.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - CMD
+The CMD instruction should be used to run the software contained by your image, along with any arguments. CMD should almost always be used in the form of CMD [“executable”, “param1”, “param2”…]. Thus, if the image is for a service (Apache, Rails, etc.), you would run something like CMD ["apache2","-DFOREGROUND"]. Indeed, this form of the instruction is recommended for any service-based image.
+
+In most other cases, CMD should be given an interactive shell (bash, python, perl, etc), for example, CMD ["perl", "-de0"], CMD ["python"], or CMD [“php”, “-a”]. Using this form means that when you execute something like docker run -it python, you’ll get dropped into a usable shell, ready to go. CMD should rarely be used in the manner of CMD [“param”, “param”] in conjunction with ENTRYPOINT, unless you and your expected users are already quite familiar with how ENTRYPOINT works.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - EXPOSE
+The EXPOSE instruction indicates the ports on which a container will listen for connections. Consequently, you should use the common, traditional port for your application. For example, an image containing the Apache web server would use EXPOSE 80, while an image containing MongoDB would use EXPOSE 27017 and so on.
+
+For external access, your users can execute docker run with a flag indicating how to map the specified port to the port of their choice. For container linking, Docker provides environment variables for the path from the recipient container back to the source (ie, MYSQL_PORT_3306_TCP).
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - ENV
+In order to make new software easier to run, you can use ENV to update the PATH environment variable for the software your container installs. For example, ENV PATH /usr/local/nginx/bin:$PATH will ensure that CMD [“nginx”] just works.
+
+The ENV instruction is also useful for providing required environment variables specific to services you wish to containerize.
+
+Lastly, ENV can also be used to set commonly used version numbers so that version bumps are easier to maintain:
+
+[source,bash]
+----
+ENV SY_VERSION 2.0.0.Alpha3
+ENV JBOSS_HOME /opt/jboss/wildfly
+RUN cd $JBOSS_HOME \
+    && curl http://downloads.jboss.org/switchyard-$SY_VERSION-WildFly.zip | bsdtar -xvf- \
+    && chown -R wildfly:wildfly $JBOSS_HOME
+----
+
+Similar to having constant variables in a program (as opposed to hard-coding values), this approach lets you change a single ENV instruction to auto-magically bump the version of the software in your container.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - ADD or COPY
+Although ADD and COPY are functionally similar, generally speaking, COPY is preferred. That’s because it’s more transparent than ADD. COPY only supports the basic copying of local files into the container, while ADD has some features (like local-only tar extraction and remote URL support) that are not immediately obvious. Consequently, the best use for ADD is local tar file auto-extraction into the image, as in ADD rootfs.tar.xz /.
+
+If you have multiple Dockerfile steps that use different files from your context, COPY them individually, rather than all at once. This will ensure that each step's build cache is only invalidated (forcing the step to be re-run) if the specifically required files change.
+
+For example:
+
+[source,bash]
+----
+COPY requirements.txt /tmp/
+RUN pip install /tmp/requirements.txt
+COPY . /tmp/
+----
+
+results in fewer cache invalidations for the RUN step, than if you put the `COPY . /tmp/` before it.
+
+Because image size matters, using ADD to fetch packages from remote URLs is strongly discouraged; you should use curl or wget instead. That way you can delete the files you no longer need after they've been extracted and you won't have to add another layer in your image. For example, you should avoid doing things like:
+
+[source,bash]
+----
+ADD http://downloads.jboss.org/switchyard/releases/v2/switchyard-2-WildFly.zip /opt/jboss/wildfly
+RUN bsdtar -xvf /opt/jboss/wildfly/switchyard-2-WildFly.zip
+RUN chown -R wildfly:wildfly /opt/jboss/wildfly
+----
+
+And instead, do something like:
+
+[source,bash]
+----
+RUN cd /opt/jboss/wildfly \
+    && curl http://downloads.jboss.org/switchyard/releases/v2/switchyard-2-WildFly.zip | bsdtar -xvf- \
+    && chown -R wildfly:wildfly /opt/jboss/wildfly
+----
+
+For other items (files, directories) that do not require ADD’s tar auto-extraction capability, you should always use COPY.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - ENTRYPOINT
+The best use for ENTRYPOINT is as a helper script. Using ENTRYPOINT for other tasks can make your code harder to understand. For example,
+
+[source,bash]
+----
+docker run -it official-image bash
+----
+
+is much easier to understand than
+
+[source,bash]
+----
+docker run -it --entrypoint bash official-image -i
+----
+
+This is especially true for new Docker users, who might naturally assume the above command will work fine. In cases where an image uses ENTRYPOINT for anything other than just a wrapper script, the command will fail and the beginning user will then be forced to learn about ENTRYPOINT and --entrypoint.
+
+In order to avoid a situation where commands are run without clear visibility to the user, make sure your script ends with something like exec "$@". After the entrypoint completes, the script will transparently bootstrap the command invoked by the user, making what has been run clear to the user.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - VOLUME
+The VOLUME instruction should be used to expose any database storage area, configuration storage, or files/folders created by your docker container. You are strongly encouraged to use VOLUME for any mutable and/or user-serviceable parts of your image.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - USER
+If a service can run without privileges, use USER to change to a non-root user. Start by creating the user and group in the Dockerfile with something like:
+
+[source,bash]
+----
+RUN groupadd -r jboss && useradd -r -g jboss jboss.
+----
+
+NOTE: Users and groups in an image get a non-deterministic UID/GID in that the “next” UID/GID gets assigned regardless of image rebuilds. So, if it’s critical, you should assign an explicit UID/GID.
+
+You should avoid installing or using sudo since it has unpredictable TTY and signal-forwarding behavior that can cause more more problems than it solves. If you absolutely need functionality similar to sudo (e.g., initializing the daemon as root but running it as non-root), you may be able to use “gosu”.
+
+Lastly, to reduce layers and complexity, avoid switching USER back and forth frequently.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - WORKDIR
+For clarity and reliability, you should always use absolute paths for your WORKDIR. Also, you should use WORKDIR instead of proliferating instructions like `RUN cd … && do-something`, which are hard to read, troubleshoot, and maintain.
+
+== Guidance for Docker Image Authors
+=== The Dockerfile instructions - ONBUILD
+ONBUILD is only useful for images that are going to be built FROM a given image.
+
+Images built from ONBUILD should get a separate tag, for example: jboss/wildfly:8.1-onbuild
+
+Be careful when putting ADD or COPY in ONBUILD. The “onbuild” image will fail catastrophically if the new build's context is missing the resource being added. Adding a separate tag, as recommended above, will help mitigate this by allowing the Dockerfile author to make a choice.
+
+== Guidance for Docker Image Authors
+=== Further tips from JBoss
 
 * Use *Dockerfiles* for reproducible images (instead of docker commit)
 * Use *MAINTAINER* to know who to contact regarding the image
@@ -1026,7 +1423,7 @@ Scenarios where we might spend some time:
 ** Volumes can be shared between containers using --volumes-from
 ** Changes to large files are faster (use volumes when writing large ammounts of data)
 * Use *USER* (By default docker containers run as root. A docker container running as root has full control of the host system. Avoid it!!!) 
-** Change to root user if needed, and then to back to a concrete user
+** Change to root user if needed, and then back to a concrete user
 
 Tips from http://www.projectatomic.io/docs/docker-image-author-guidance/[Project atomic]
 
@@ -1084,3 +1481,14 @@ image::JBoss_and_Docker.png[Jboss Community]
 == JBoss Community images explained
 
 image::Docker_community.png[Docker community images]
+
+== Where docker is useful for developers
+These is a summary of some scenarios where we might spend some time as developers or involved in development processes:
+
+* Developer develops and tests his work in windows while final environment is Linux
+* Developer is working on his computer on a project, testing his code and his Mysql database gets corrupted
+* Developer needs to work on a clustered functionality, but does it in his own “single” computer
+* Developer/Ops needs to create provisioning/deployment/... scripts for final environments, but tests them in his “own” computer while developing
+* Continuous Integration Environment runs only JUnit tests as there is no environment to run automated integrated tests for functional, integration,... tests
+* A developer needs to work with a specific product to validate a concept, to create a PoC, a demo, integration between products,....
+* Developer finds a bug and opens a support ticket and wants the support guys to be able to reproduce the scenario.
