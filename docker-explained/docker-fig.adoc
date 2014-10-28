@@ -1,0 +1,141 @@
+= Docker orchestration - Fig
+:author: Jorge Morales 
+:email: <jmorales@redhat.com>
+:description: fig
+:revdate: 2014-10-20
+:revnumber: 0.1
+:icons: font
+:imagesdir: ./images
+:figure-caption!:
+:data-uri:
+
+== Fig
+http://www.fig.sh/[Fig] orachestrates your containers
+
+Combine multiple containers, link them together and start and stop them at once.
+
+=== Start all of the containers
+Build, (re)create, start and attach to containers for a service.
+
+By default, `fig up` will aggregate the output of each container, and
+when it exits, all containers will be stopped. If you run `fig up -d`,
+it'll start the containers in the background and leave them running.
+
+If there are existing containers for a service, `fig up` will stop
+and recreate them (preserving mounted volumes with volumes-from),
+so that changes in `fig.yml` are picked up. If you do not want existing
+containers to be recreated, `fig up --no-recreate` will re-use existing
+containers.
+
+[source,bash]
+----
+fig up
+
+Usage: up [options] [SERVICE...]
+
+Options:
+    -d             Detached mode: Run containers in the background,
+                   print new container names.
+    --no-deps      Don`t start linked services.
+    --no-recreate  If containers already exist, don`t recreate them.
+----
+
+=== List containers
+[source,bash]
+----
+fig ps [-q] [SERVICE...] 
+----
+
+=== Delete current containers
+Remove stopped service containers.
+
+
+[source,bash]
+----
+fig rm
+Usage: rm [options] [SERVICE...]
+
+Options:
+    --force   Don`t ask to confirm removal
+    -v        Remove volumes associated with containers
+
+----
+
+=== Log current containers
+View output from containers.
+
+[source,bash]
+----
+fig logs [SERVICE...]
+----
+
+
+== Sample demo - CD and DTGov
+The purpose of this demo is to show DTGov integrated with an organization Continuous Delivery tools and process
+
+=== Current demo state
+
+image::DTGov-demo_1.png[Current state]
+
+=== Current demo code
+
+[source,yml]
+----
+mail:
+  image: jmorales/services-mail
+
+dev:
+  image: governance_demo/sy
+  volumes:
+   - /home/jboss/dev
+  ports:
+   - "19990:9990"
+   - "18080:8080"
+  hostname: dev
+
+qa:
+  image: governance_demo/sy
+  volumes:
+   - /home/jboss/qa
+  ports:
+   - "29990:9990"
+   - "28080:8080"
+  hostname: qa
+
+stage:
+  image: governance_demo/sy
+  volumes:
+   - /home/jboss/stage
+  ports:
+   - "39990:9990"
+   - "38080:8080"
+  hostname: stage
+
+nexus:
+  image: jmorales/ci_nexus
+  volumes:
+   - /home/jboss/stage
+  ports:
+   - "48080:8081"
+  hostname: nexus
+
+dtgov:
+  image: governance_demo/dtgov
+  links:
+   - mail
+   - dev
+   - qa
+   - stage
+   - nexus
+  volumes_from:
+   - dev
+   - qa
+   - stage
+  ports:
+   - "59990:9990"
+   - "59999:9999"
+   - "58080:8080"
+  hostname: dtgov
+----
+
+image::Docker_cd_demo.png[Containers]
