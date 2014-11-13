@@ -1,0 +1,169 @@
+= Use Proxy for speeding up docker images creation
+:author: Jorge Morales 
+:job: JBoss Middleware EMEA Architect
+:email: jmorales@redhat.com
+:description: Docker tip
+:revdate: 2014-11-10
+:revnumber: 0.1
+:icons: font
+:imagesdir: ./images
+:figure-caption!:
+:data-uri:
+
+== Introduction
+Sometimes it is very convenient to use a proxy (squid or any other) to speed up development. When creating an image you might download some packages, maybe, change some steps, which require you to redownload thos packages. To ease this a bit, you can use a proxy, and instruct docker to use that proxy.
+
+I started looking at configuring a proxy for the docker daemon, but once I had it finally working I realized that it was proxying only the images I downloaded from the internet, so not too much benefit. Anyway, it is documented below.
+
+I then tried to hook a proxy between the build process and the internet. After some hours, I got to this http://jpetazzo.github.io/2014/06/17/transparent-squid-proxy-docker/[nice post from Jerome Petazzo]. His work, linked on github is more advanced what is mentioned in that post, and the docs are not very clear, so I will summarize it here, and comment a small issue that I had on my Fedora 20 (docker 1.3.0). 
+
+== Proxy for images
+Here is a description of the steps required to use a proxy with the daemon.
+
+=== Install the proxy and configure
+Installation steps are quite easy, just use yum in Fedora to install http://www.squid-cache.org/[squid]:
+
+[source,bash]
+----
+$ yum -y install squid
+----
+
+In fedora (20), squid config file is */etc/squid/squid.conf*.  We will configure for our usage.
+
+NOTE: Configuration is dependent on your preferences, this is just an example of my configuration preferences.
+
+* Uncomment cache_dir directive and set the allowed max size of the cache dir. Example:
+
+[source,bash]
+----
+cache_dir ufs /var/spool/squid 20000 16 256
+----
+sets the max cache dir size to 20 GB.
+
+* Add maximum_object_size directive and set its value to the largest file size you want to cache. Example:
+
+[source,bash]
+----
+maximum_object_size 5 GB
+----
+allows to cache DVD-sized files.
+
+
+* Optional: Disable caching from some domains. If you have some files/mirrors already on your local network and you don't want to cache those files (the access is already fast enough), you can specify it using acl and cache directives. This example disables caching of all traffic coming from .redhat.com domain:
+
+[source,bash]
+----
+acl redhat dstdomain .redhat.com
+cache deny redhat
+----
+
+* start Squid service:
+
+[source,bash]
+----
+$ service squid start
+----
+
+WARNING: We will not start squid on boot, as we do only want to use squid for Docker image development purposes.
+
+* Make sure iptables or SELinux do not block Squid operating on port 3128 (the default value).
+
+=== Configure Docker to use a proxy
+By now, we will have squid running on port export *3128* (default). We just need to instruct docker to use that while the containers go to the internet for things.
+
+You need to establish en environment variable to the docker daemon, specifying the *http_proxy*.
+
+In fedora 20, you can modify your */etc/sysconfig/docker* configuration file, with the following:
+[bash,source]
+----
+HTTP_PROXY=http://localhost:3128
+http_proxy=$HTTP_PROXY
+HTTPS_PROXY=$HTTP_PROXY
+https_proxy=$HTTP_PROXY
+
+export HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
+
+# This line already existed. Only lines above this one has been added.
+OPTIONS=--selinux-enabled 
+----
+
+Now you need to restart the daemon:
+[source,bash]
+----
+$ systemctl daemon-reload
+$ systemctl restart docker.service
+----
+
+=== Create images
+Now, if you get an image, it will get proxied. If you delete it from your local, and want to fetch it again, it will get it now from the proxy cache.
+
+This might seem as it is bt a big benefit, but if you have a local lan, you can use this to have a proxy/cache for the HUB (or registry).
+
+== Proxy for images build contents
+As I said before, it usually is mor interesting to proxy what will be in the images you are developing, so if you invalidate a layer (modify the Dockerfile) next time will not go to the internet.
+
+Following http://jpetazzo.github.io/2014/06/17/transparent-squid-proxy-docker/[Jerome's blog] and his https://github.com/jpetazzo/squid-in-a-can[github] what I did was:
+
+I cloned his github repo to my local:
+
+[source,bash]
+----
+$ git clone https://github.com/jpetazzo/squid-in-a-can.git squid-in-a-can.git
+----
+
+And then I run:
+
+[source,bash]
+----
+fig up -d squid && fig run tproxy
+----
+
+NOTE: You need fig, but who does not have it?
+
+Then you just need to do a normal docker build. The first time every download will get into the "squid" container, and the later times will be fetched from there.
+While doing this, I hit an issue. I do not realy know if it was in my environment, in any Fedora 20/Docker 1.3.0, or any of them. The issue was that I was getting a unreachable host. It turned out that in my iptables I had a rule that was rejecting everything with icmp-host-prohibited. I solved it removing those lines from iptables.
+
+I used:
+
+[source,bash]
+----
+$ iptables-save > iptables-original.conf
+$ cp iptables-original.conf iptables-new.conf
+----
+
+Commented out his lines in iptables-new.conf
+
+[source,bash]
+----
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+-A INPUT -j REJECT --reject-with icmp-host-prohibited 
+----
+
+And load the new iptables conf:
+
+[source,bash]
+----
+$ iptables-restore < iptables-new.conf
+----
+
+I also opened a bug in https://github.com/jpetazzo/squid-in-a-can/issues/5[squid-in-a-can github] to see if Jerome's has an answer to this.
+
+== Options
+Now there are 2 options, as the container created this way stores the cached data in it, so if you remove it, you remove the cache. 
+
+* First option is to use a volume to a local dir. For this, edit the fig.yml in the project's source dir.
+* Second option is to use your local squid (if you already have one), so you only need to run that second container, or only the add/remove iptables rule:
+
+** Start to proxy (Asuming squid is running):
+
+[source,bash]
+----
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to 3128
+----
+
+** Stop to proxy:
+
+[source,bash]
+----
+iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to 3128
+----

@@ -1429,11 +1429,50 @@ Tips from http://www.projectatomic.io/docs/docker-image-author-guidance/[Project
 
 == Tips
 
+* Proxy all downloads to create images
 * How to backup data
 * How to debug problems in a container
 * Copy files from the container
 * Customizing behavior by using environment variables (or environment variables files) in docker run
+* How to graphically view your images/layers
 * ...
+
+== How to proxy all downloads to create images
+If you build a lot of containers, and have a not-so-fast internet link, you might be spending a lot of time waiting for packages to download. It would be nice if all those downloads could be automatically cached, without tweaking your Dockerfiles, right?
+
+[source,bash]
+----
+docker run --net host jpetazzo/squid-in-a-can
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to 3129
+----
+
+See http://jpetazzo.github.io/2014/06/17/transparent-squid-proxy-docker/[Source]
+
+== How to backup your data
+TODO: Write this
+
+== How to debug problems in a container
+TODO: Write this
+
+== How to copy files from the container
+TODO: Write this
+
+== How to customize behavior of a container
+TODO: Write this
+
+== How to graphically view your images/layers
+You can use easily create a graph of your layers/images with:
+
+[source, bash]
+----
+$ docker images -viz | dot -Tpng -o docker.png
+----
+
+This will create an image, in png format, with name docker.png, like the following:
+
+image::docker_graph.png[Docker images graph]
+
+NOTE: This options (-viz) will be removed. https://github.com/justone/dockviz[Here is a replacement]. 
 
 == Docker articles to read
 Here is a list of nice articles and blog posts that should be read in order to be a power user:

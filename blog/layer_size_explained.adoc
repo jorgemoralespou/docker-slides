@@ -1,0 +1,67 @@
+= Docker layer size explained
+:author: Jorge Morales 
+:job: JBoss Middleware EMEA Architect
+:email: jmorales@redhat.com
+:description: Docker layer size explained
+:revdate: 2014-10-20
+:revnumber: 0.1
+:icons: font
+:imagesdir: ./images
+:figure-caption!:
+:data-uri:
+
+== Introduction
+When you create a docker image, the final size of an image is very relevant, as people will have to download it from somewhere (maybe internet), at least, the first time, and also every time the image will change. (At least will have to download all the changed/new layers).
+
+I was curious about how to optimize the size of a layer, cause I read at some time that docker internally used a "Copy-on-Write filesystem", so every write that you made while creating a layer was there, even if you removed the software.
+
+I decided to validate this, and to explain how it works, and how to optimize the size of a layer.
+
+I have 3 main tests to validate the concept, using the https://github.com/jboss-dockerfiles/wildfly[JBoss Wildfly image], available on github as a base. But as this image, is composed of 2 base images on top of fedora, plus the wildfly image, I decided to merge everything into one single Dockerfile.
+
+== Test 1 - Every command in a separate line
+This first test, demonstrates how every command creates a layer, so if you split commands in separate lines, you end up with many more layers, plus many more space being used.
+
+The code for this dockerfiles is available on github:
+
+* https://github.com/jorgemoralespou/docker-slides/blob/master/docker-explained/labs/lab_03/dockerfile_1/Dockerfile[dockerexplained/lab03-1]
+* https://github.com/jorgemoralespou/docker-slides/blob/master/docker-explained/labs/lab_03/dockerfile_2/Dockerfile[dockerexplained/lab03-2]
+
+.Image sizes
+image::test1.png[Test results]
+
+*The conclusion to this is to avoid creating unnecesary layers, or combine shell commands in docker commands, like multiple yum install && yum clean*
+
+== Test 2 - Uncompressing while downloading vs remove downladed file after decompressing
+In this test, I wanted to test whether the "copy-on-write" meant that even if I removed a file, it still occupy some disc space. So for this purpose, what I did was uncompressing a file while I was downloading it directly from the internet versus saving that file, decompressing it and then removing it.
+
+The code for this dockerfiles is available on github:
+
+* https://github.com/jorgemoralespou/docker-slides/blob/master/docker-explained/labs/lab_04/dockerfile_1/Dockerfile[dockerexplained/lab04-1]
+* https://github.com/jorgemoralespou/docker-slides/blob/master/docker-explained/labs/lab_04/dockerfile_2/Dockerfile[dockerexplained/lab04-2]
+
+.Image sizes
+image::test2.png[Test results]
+
+*The conclusion is that in terms of size it is the same, if it is done in a single docker command.*
+
+== Test 3 - One single RUN command for most of the stuff
+In this test, I have modified the mage description, to only contain one single RUN command with everything in there.
+
+The code for this dockerfiles is available on github:
+
+* https://github.com/jorgemoralespou/docker-slides/blob/master/docker-explained/labs/lab_05/dockerfile_1/Dockerfile[dockerexplained/lab05-1]
+* https://github.com/jorgemoralespou/docker-slides/blob/master/docker-explained/labs/lab_05/dockerfile_2/Dockerfile[dockerexplained/lab05-2]
+
+.Image size
+image::test3.png[Test results]
+
+*The conclusion for this test is that the benefit we obtain when having s simple layer is not so big, and every change will create a whole new layer, so it is worse on the long run*
+
+== Overall conclusions
+These are the summary of the conclusions I have made:
+
+* Layer your images for better reusability of the layers
+* Combine all the yum install && yum clean all that you'll have in an image in a single RUN command
+* When installing software it has smaller footpring to download (via curl) tha to ADD/COPY from local filesystem as you can combine the download with the install and removing stale data.
+* Don't combine commands in a single RUN more than needed as the benefit in terms of size can not be huge, but the lose in terms reusability it is
