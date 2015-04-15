@@ -1082,6 +1082,75 @@ CONTROLLER          CONTAINER(S)        IMAGE(S)            SELECTOR            
 kubectl create -f FILE.json
 ----
 
+== Troubleshooting
+
+=== Get more detailed information from the daemons
+
+You can use journalctl to see into the detailed errors in the systemd daemons with
+a command like *journalctl -f -l -xn -u SERVICE_A -u SERVICES_B ....*
+
+The name of the daemons are:
+
+* All machines
+** flanneld
+* Kubernetes master
+** etcd
+** kube-apiserver
+** kube-replication-controller
+** kube-scheduler
+* Kubernetes nodes
+** kubelet
+** kube-proxy
+** docker
+
+----
+journalctl -f -l -xn -u SERVICE_A -u SERVICES_B ....
+----
+
+For the master:
+----
+journalctl -f -l -xn -u kube-apiserver -u kube-replication-controller -u kube-scheduler -u etcd -u flanneld
+----
+
+For a node:
+
+----
+journalctl -f -l -xn -u kubelet -u kube-proxy -u docker -u flanneld
+----
+
+For a master & node:
+
+----
+journalctl -f -l -xn -u kube-apiserver -u kube-replication-controller -u kube-scheduler -u kubelet -u kube-proxy -u docker -u etcd -u flanneld
+----
+
+=== The pods are not properly schedule
+If the pod scheduling fails with an error like this one:
+
+----
+Failed to find an IP for pod: {..... Unknown x.x.x.x map []}"
+----
+
+Check that the kubelet is properly accesing the apiserver and that the node is registered. Check in
+*/etc/kubernetes/kubelet* for *KUBE_ETCD_SERVERS*
+
+----
+KUBE_ETCD_SERVERS="--api_servers=http://master:8080"
+----
+
+=== Disable using an external repository
+Edit /etc/sysconfig/docker and comment out the alternate registry, and block docker.io:
+
+----
+#ADD_REGISTRY='--add-registry registry.access.redhat.com'
+BLOCK_REGISTRY='--block-registry docker.io'
+----
+
+You have to manually pull and install kubernetes/pause
+
+----
+docker pull kubernetes/pause
+----
 
 == Documentation references
 https://github.com/scollier/SATraining/blob/master/deployAtomicHosts.md[Create Atomic Hosts lab]
