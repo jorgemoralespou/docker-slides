@@ -1,0 +1,1089 @@
+= How to run Kubernetes in RHEL Atomic (Demo with 4 boxes)
+
+== Create the required vm with atomic from the qcow2/iso
+
+* Grab and extract the Atomic and metadata images from our internal repo. Use sudo and appropriate permissions.
+
+----
+wget http://refarch.cloud.lab.eng.bos.redhat.com/pub/projects/atomic/atomic0-cidata.iso
+cp atomic0-cidata.iso /var/lib/libvirt/images/.
+wget http://cdn.stage.redhat.com/content/dist/rhel/atomic/7/7Server/x86_64/images/rhel-atomic-cloud-7.1-0.x86_64.qcow2
+cp rhel-atomic-host-7.qcow2.gz /var/lib/libvirt/images/.; cd /var/lib/libvirt/images
+gunzip rhel-atomic-host-7.qcow2.gz
+----
+
+* Make 3 copy-on-write images, using the downloaded image as a "gold" master.
+
+----
+qemu-img create -f qcow2 -o backing_file=rhel-atomic-host-7.qcow2 master.qcow2
+for i in $(seq 3)
+do
+   qemu-img create -f qcow2 -o backing_file=rhel-atomic-host-7.qcow2 minion-${i}.qcow2
+done
+----
+
+* Use the following commands to install the images. Note: You will need to change the bridge to match your setup, or at least confirm it matches what you have.
+
+----
+virt-install --import --name master --ram 1024 --vcpus 2 --disk path=/var/lib/libvirt/images/master.qcow2,format=qcow2,bus=virtio --disk path=/var/lib/libvirt/images/atomic0-cidata.iso,device=cdrom --network bridge=virbr0 --force
+for i in $(seq 3)
+do
+   virt-install --import --name minion-${i} --ram 1024 --vcpus 2 --disk path=/var/lib/libvirt/images/minion-${i}.qcow2,format=qcow2,bus=virtio --disk path=/var/lib/libvirt/images/atomic0-cidata.iso,device=cdrom --network bridge=virbr0 --force
+done
+----
+
+NOTE: It is easy to create an iso file for cloud-init for each box. See http://www.projectatomic.io/blog/2014/10/getting-started-with-cloud-init/[here]
+
+== Update your RHEL atomic
+
+* Confirm you can login to the hosts:
+
+----
+Username: cloud-user Password: atomic (KVM only)
+----
+
+* Enter sudo shell:
+
+----
+sudo -i
+----
+
+Update all of the atomic hosts. The following commands will subscribe you to receive updates and allow you to upgrade your Atomic host.
+
+NOTE: Depending on the version of Atomic that you initially installed, some of the sample output below may differ from what you see.
+
+----
+# atomic host status
+  TIMESTAMP (UTC)         VERSION     ID             OSNAME               REFSPEC
+* 2015-02-17 22:30:38     7.1.244     27baa6dee2     rhel-atomic-host     rhel-atomic-host:rhel-atomic-host/7/x86_64/standard
+
+# subscription-manager register
+Username: rhn-username
+Password: rhn-password
+The system has been registered with ID: af27f5ed-4f79-46ba-bf37-2e478b83e45b
+----
+
+After a successful registration, the RHEL Atomic system should be subscribed. Often
+administrators will combine the steps of registration and subscription into one command by
+using *subscription-manager register --auto-attach* command, but it is important to
+note that there are really two things going on.
+
+The subscription-manager list command displays a list of products that are installed
+on a system.
+
+----
+# subscription-manager list
+----
+
+Use the subscription-manager list --available command to display the available
+subscription pools. Identify the product that provides a RHEL Atomic entitlement and note the
+Pool ID of the product.
+
+----
+# subscription-manager list --available | less
+...Output omitted...
+Subscription Name: Red Hat Employee Subscription
+Provides:
+Red Hat Enterprise Linux Atomic Host
+Red Hat Enterprise Linux Atomic Host Beta
+Red Hat Enterprise Linux Atomic Host HTB
+...Output omitted...
+Pool ID:
+1234f9843e3d687a013e3ddd3a66ffff
+----
+
+Use subscription-manager with the Pool ID to subscribe the RHEL Atomic Host. This gives
+more control over which entitlement is assigned to the system, rather than using the --auto-
+attach option.
+
+----
+# subscription-manager attach --pool=1234f9843e3d687a013e3ddd3a66ffff
+Successfully attached a subscription for: Red Hat Employee Subscription
+----
+
+The subscription-manager list command should now confirm that the RHEL Atomic Host
+system is properly subscribed.
+
+----
+# subscription-manager list
++-------------------------------------------+
+Installed Product Status
++-------------------------------------------+
+Product Name:
+Red Hat Enterprise Linux Atomic Host
+Product ID:
+271
+Version:
+7
+Arch:
+x86_64
+Status:
+Subscribed
+Status Details:
+Starts:
+04/23/2013
+Ends:
+12/31/2021
+----
+
+Now that you have your atomic host subscribed, upgrade to the latest.
+
+----
+# atomic host upgrade
+Updating from: rhel-atomic-host-ostree:rhel-atomic-host/7/x86_64/standard
+
+53 metadata, 321 content objects fetched; 81938 KiB transferred in 71 seconds
+Copying /etc changes: 26 modified, 4 removed, 57 added
+Transaction complete; bootconfig swap: yes deployment count change: 1
+Changed:
+  libgudev1-208-99.atomic.0.el7.x86_64
+  libsmbclient-4.1.12-21.el7_1.x86_64
+  libwbclient-4.1.12-21.el7_1.x86_64
+  python-six-1.3.0-4.el7.noarch
+  redhat-release-atomic-host-7.1-20150219.0.atomic.el7.1.x86_64
+  samba-common-4.1.12-21.el7_1.x86_64
+  samba-libs-4.1.12-21.el7_1.x86_64
+  shadow-utils-2:4.1.5.1-18.el7.x86_64
+  subscription-manager-1.13.22-1.el7.x86_64
+  subscription-manager-plugin-container-1.13.22-1.el7.x86_64
+  subscription-manager-plugin-ostree-1.13.22-1.el7.x86_64
+  systemd-208-99.atomic.0.el7.x86_64
+  systemd-libs-208-99.atomic.0.el7.x86_64
+  systemd-sysv-208-99.atomic.0.el7.x86_64
+Upgrade prepared for next boot; run "systemctl reboot" to start a reboot
+----
+
+* Check the atomic tree version. The output shows that a new deployment is at the top of the list and that will be the version which will be active after a reboot.
+
+----
+# atomic host status
+  TIMESTAMP (UTC)         VERSION     ID             OSNAME               REFSPEC
+  2015-02-19 20:26:26     7.1.0       5799825b36     rhel-atomic-host     rhel-atomic-host-ostree:rhel-atomic-host/7/x86_64/standard
+* 2015-02-17 22:30:38     7.1.244     27baa6dee2     rhel-atomic-host     rhel-atomic-host-ostree:rhel-atomic-host/7/x86_64/standard
+----
+
+NOTE: The * identifies the active version.
+
+* Reboot the VMs to switch to updated tree.
+
+----
+# systemctl reboot
+----
+
+* After the VMs have rebooted, SSH into each and enter sudo shell:
+
+----
+# sudo -i
+----
+
+* Check your version with atomic. The '*' pointer should now be on the new tree.
+
+----
+# atomic host status
+  TIMESTAMP (UTC)         VERSION     ID             OSNAME               REFSPEC
+* 2015-02-19 20:26:26     7.1.0       5799825b36     rhel-atomic-host     rhel-atomic-host-ostree:rhel-atomic-host/7/x86_64/standard
+  2015-02-17 22:30:38     7.1.244     27baa6dee2     rhel-atomic-host     rhel-atomic-host-ostree:rhel-atomic-host/7/x86_64/standard
+----
+
+== Configure docker to use a private registry
+We add a private registry to pull and search images.
+
+* Edit the /etc/sysconfig/docker file and restart docker. You will need the following lines in the file.
+
+----
+ADD_REGISTRY='--add-registry [PRIVATE_REGISTRY]'
+----
+
+NOTE: If the private registry is not configured with a CA-signed SSL certificate docker pull ... will fail with a message about an insecure registry. In that case add the following line to /etc/sysconfig/docker:
+
+----
+INSECURE_REGISTRY='--insecure-registry [PRIVATE_REGISTRY]'
+----
+
+* /etc/sysconfig/docker includes example ADD_REGISTRY and INSECURE_REGISTRY lines. Uncomment them and append the [PRIVATE_REGISTRY] FQDN. For example:
+
+----
+ADD_REGISTRY='--add-registry my.private.registry.fqdn'
+INSECURE_REGISTRY='--insecure-registry my.private.registry.fqdn'
+----
+
+* Restart docker
+
+----
+systemctl restart docker
+----
+
+== Install rhel-tools
+To have:
+
+* git
+* tcpdump
+* sosreport
+
+----
+docker pull rhel7/rhel-tools
+----
+
+== Configure flannel
+
+Perform the following on the master node (pick one):
+
+* Look at networking before flannel configuration.
+
+----
+# ip a
+----
+
+* Start etcd.
+
+----
+# systemctl start etcd; systemctl enable etcd
+# systemctl status etcd
+----
+
+* Configure Flannel by creating a `flannel-config.json` in your current directory.  The contents should be:
+
+
+NOTE: Choose an IP range that is *NOT* part of the public IP address range.
+
+[source,json]
+----
+{
+    "Network": "18.0.0.0/16",
+    "SubnetLen": 24,
+    "Backend": {
+        "Type": "vxlan",
+        "VNI": 1
+     }
+}
+----
+
+* Add the configuration to the etcd server. Use the public IP address of the master node.
+
+----
+# curl -L http://x.x.x.x:4001/v2/keys/coreos.com/network/config -XPUT --data-urlencode value@flannel-config.json
+----
+
+Example of successful output:
+
+[source,json]
+----
+{"action":"set","node":{"key":"/coreos.com/network/config","value":"{\n    \"Network\": \"18.0.0.0/16\",\n    \"SubnetLen\": 24,\n    \"Backend\": {\n        \"Type\": \"vxlan\",\n        \"VNI\": 1\n     }\n}\n","modifiedIndex":3,"createdIndex":3}}-bash-4.2#
+----
+
+* Verify the key exists.  Use the IP Address of your etcd / master node.
+
+----
+# curl -L http://x.x.x.x:4001/v2/keys/coreos.com/network/config
+----
+
+* Backup the flannel configuration file.
+
+
+----
+# cp /etc/sysconfig/flanneld{,.orig}
+----
+
+* Configure flannel using the network interface of the system. This is commonly `eth0` but might be `ens3`.
+Use `ip a` to list network interfaces. This should not be necessary on most systems unless they have
+multiple network interfaces.  In which case you will want to use the interface capable of
+talking to other nodes in the cluster.
+
+----
+# sed -i 's/#FLANNEL_OPTIONS=""/FLANNEL_OPTIONS="eth0"/g' /etc/sysconfig/flanneld
+----
+
+
+* Edit `/etc/sysconfig/flanneld` file with the public IP address of the master node
+
+----
+# sed -i 's/127\.0\.0\.1/x\.x\.x\.x/g' /etc/sysconfig/flanneld
+----
+
+* The result should be as follows:
+
+----
+# Flanneld configuration options
+
+# etcd url location.  Point this to the server where etcd runs
+FLANNEL_ETCD="http://x.x.x.x:4001"
+
+# etcd config key.  This is the configuration key that flannel queries
+# For address range assignment
+FLANNEL_ETCD_KEY="/coreos.com/network"
+
+# Any additional options that you want to pass
+FLANNEL_OPTIONS="eth0"
+----
+
+
+* Enable the flanneld service and reboot.
+
+
+----
+# systemctl enable flanneld
+# systemctl reboot
+----
+
+* The docker and flannel network interfaces must match otherwise docker will fail to start.
+If Docker fails to load, or the flannel IP is not set correctly, reboot the system.
+It is also possible to stop docker, delete the docker0 network interface, and then restart docker
+after flannel has started.  But rebooting is easier. Do not move forward until you can issue
+an _ip a_ and the _flannel_ and _docker0_ interface are on the same subnet.
+
+* When the system comes back up check the interfaces on the host now. Notice there is now a flannel.1 interface.
+
+----
+# ip a
+...<snip>...
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether fa:16:3e:32:ba:98 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.36.47/24 brd 172.16.36.255 scope global dynamic eth0
+       valid_lft 182sec preferred_lft 182sec
+    inet6 fe80::f816:3eff:fe32:ba98/64 scope link
+       valid_lft forever preferred_lft forever
+3: flannel.1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN
+    link/ether c2:13:e3:a3:ae:3e brd ff:ff:ff:ff:ff:ff
+    inet 18.0.26.0/16 scope global flannel.1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::c013:e3ff:fea3:ae3e/64 scope link
+       valid_lft forever preferred_lft forever
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN
+    link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+    inet 18.0.26.1/24 scope global docker0
+       valid_lft forever preferred_lft forever
+
+----
+
+
+Now that master is configured, lets configure the other nodes called "minions" (minion{1,2,3}).
+
+**Perform the following on the other 3 atomic host minions:**
+
+* Use curl to check firewall settings from each minion to the master.
+We need to ensure connectivity to the etcd service.
+You may want to set up your `/etc/hosts` file for name resolution here.
+If there are any issues, just fall back to IP addresses for now.
+
+----
+# curl -L http://x.x.x.x:4001/v2/keys/coreos.com/network/config
+----
+
+For some of the steps below, it might help to set up ssh keys on the master and copy those over to the
+minions, e.g. with ssh-copy-id.  You also might want to set hostnames on the minions and edit
+your `/etc/hosts` files on all nodes to reflect that.
+
+From the master:
+
+* Copy over flannel configuration to the minions, both of them. Use `scp` or copy the file contents manually.
+
+----
+# scp /etc/sysconfig/flanneld x.x.x.x:/etc/sysconfig/.
+----
+
+
+* Restart flanneld on all of the minions.
+
+----
+# systemctl restart flanneld
+# systemctl enable flanneld
+----
+
+* Check the new interface on both of the minions.
+
+----
+# ip a l flannel.1
+----
+
+From any node in the cluster, check the cluster members by issuing a query to etcd via curl.
+You should see that three servers have consumed subnets.  You can associate those subnets to
+each server by the MAC address that is listed in the output.
+
+
+----
+# curl -L http://x.x.x.x:4001/v2/keys/coreos.com/network/subnets | python -mjson.tool
+----
+
+
+* From all nodes, review the `/run/flannel/subnet.env` file.  This file was generated automatically by flannel.
+
+
+----
+# cat /run/flannel/subnet.env
+----
+
+* Check the network on the minion.
+
+----
+# ip a
+----
+
+* Docker will fail to load if the docker and flannel network interfaces are not setup correctly.
+Again it is possible to fix this by hand, but rebooting is easier.
+
+----
+# systemctl reboot
+----
+
+* A functioning configuration should look like the following; notice the docker0 and flannel.1 interfaces.
+
+
+----
+# ip a
+1: lo:  mtu 65536 qdisc noqueue state UNKNOWN group default
+link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+inet 127.0.0.1/8 scope host lo
+valid_lft forever preferred_lft forever
+inet6 ::1/128 scope host
+valid_lft forever preferred_lft forever
+
+2: eth0:  mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+link/ether 52:54:00:15:9f:89 brd ff:ff:ff:ff:ff:ff
+inet 192.168.121.166/24 brd 192.168.121.255 scope global dynamic eth0
+valid_lft 3349sec preferred_lft 3349sec
+inet6 fe80::5054:ff:fe15:9f89/64 scope link
+valid_lft forever preferred_lft forever
+
+3: flannel.1:  mtu 1450 qdisc noqueue state UNKNOWN group default
+link/ether 82:73:b8:b2:2b:fe brd ff:ff:ff:ff:ff:ff
+inet 18.0.81.0/16 scope global flannel.1
+valid_lft forever preferred_lft forever
+inet6 fe80::8073:b8ff:feb2:2bfe/64 scope link
+valid_lft forever preferred_lft forever
+
+4: docker0:  mtu 1500 qdisc noqueue state DOWN group default
+link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+inet 18.0.81.1/24 scope global docker0
+valid_lft forever preferred_lft forever
+----
+
+Do not move forward until all nodes have the docker and flannel interfaces on the same subnet.
+
+At this point the flannel cluster is set up and we can test it.
+We have etcd running on the master node and flannel / Docker running on minion{1,2,3} minions.
+Next steps are for testing cross-host container communication which will confirm that Docker and
+flannel are configured properly.
+
+=== Test the flannel configuration
+
+From each minion, pull a Docker image for testing. In our case, we will use fedora:20.
+
+* Issue the following on minion1.
+
+
+----
+# docker run -it --rm fedora:20 bash
+----
+
+* This will place you inside the container. Check the IP address.
+
+
+----
+# ip a l eth0
+5: eth0:  mtu 1450 qdisc noqueue state UP group default
+link/ether 02:42:0a:00:51:02 brd ff:ff:ff:ff:ff:ff
+inet 18.0.81.2/24 scope global eth0
+valid_lft forever preferred_lft forever
+inet6 fe80::42:aff:fe00:5102/64 scope link
+valid_lft forever preferred_lft forever
+----
+
+
+You can see here that the IP address is on the flannel network.
+
+* Issue the following commands on minion2:
+
+
+----
+# docker run -it fedora:20 bash
+
+# ip a l eth0
+5: eth0:  mtu 1450 qdisc noqueue state UP group default
+link/ether 02:42:0a:00:45:02 brd ff:ff:ff:ff:ff:ff
+inet 18.0.69.2/24 scope global eth0
+valid_lft forever preferred_lft forever
+inet6 fe80::42:aff:fe00:4502/64 scope link
+valid_lft forever preferred_lft forever
+----
+
+
+* Now, from the container running on minion2, ping the container running on minion1:
+
+
+----
+# ping 18.0.81.2
+PING 18.0.81.2 (18.0.81.2) 56(84) bytes of data.
+64 bytes from 18.0.81.2: icmp_seq=2 ttl=62 time=2.93 ms
+64 bytes from 18.0.81.2: icmp_seq=3 ttl=62 time=0.376 ms
+64 bytes from 18.0.81.2: icmp_seq=4 ttl=62 time=0.306 ms
+----
+
+* You should have received a reply. That is it. flannel is set up on the two minions
+and you have cross host communication. Etcd is set up on the master node.
+Next step is to overlay the cluster with kubernetes.
+
+
+Exit the containers on each node when finished.
+
+=== Troubleshooting: Restarting services
+
+Restart services in this order:
+
+1. etcd
+1. flanneld
+1. docker
+
+=== Troubleshooting:  Networking
+
+Flannel configures an overlay network that docker uses. `ip a` must show docker
+and flannel on the same network.
+
+Flannel has file `/usr/lib/systemd/system/docker.service.d/flannel.conf` which
+sources `/run/flannel/docker`, generated from the `flannel-config.json` file. etcd stores
+ the flannel configuration for the Master. Flannel runs on each node host (minion) to setup a
+ unique class-C container network.
+
+== Kubernetes
+The kubernetes package provides several services
+
+* kube-apiserver
+* kube-scheduler
+* kube-controller-manager
+* kubelet, kube-proxy
+
+These services are managed by systemd and the configuration resides in a
+central location, /etc/kubernetes. We will break the services up
+between the hosts. The first host, master, will be the kubernetes
+master. This host will run kube-apiserver, kube-controller-manager,
+and kube-scheduler. In addition, the master will also run etcd. The
+remaining hosts, the minions or nodes, will run kubelet, proxy,
+cadvisor and docker.
+
+image:images/architecture.png[Kubernetes architecture]
+
+* Backup the kubernetes configuration files on each system (master and nodes) before continuing.
+
+----
+for i in $(ls /etc/kubernetes/*); do cp $i{,.orig}; echo "Making a backup of $i"; done
+----
+
+=== Configure the Kubernetes master
+Kubernetes stores all of its runtime configuration using etcd. At any point, this configuration can
+be queried using etcd's REST API.
+
+The following list of files will need to be modified on the master:
+
+* /etc/kubernetes/config
+* /etc/kubernetes/controller-manager
+* /etc/kubernetes/apiserver
+
+The Kubernetes master will also need to accept inbound network traffic on the following ports:
+
+* 4001/TCP - etcd
+* 7001/TCP - etcd
+* 7080/TCP - apiserver
+* 8080/TCP - apiserver
+
+==== /etc/kubernetes/config
+This is the main configuration file for Kubernetes. It is used to configure each of the Kubernetes
+services including:
+
+* kube-apiserver.service
+* kube-controller-manager.service
+* kube-scheduler.service
+* kubelet.service
+* kube-proxy.service
+
+KUBE_ETCD_SERVERS needs to be commented out since the services should be using the
+apiserver to talk to the etcd service.
+
+----
+# Comma seperated list of nodes in the etcd cluster
+# KUBE_ETCD_SERVERS="--etcd_servers=http://127.0.0.1:4001"
+
+# logging to stderr means we get it in the systemd journal
+KUBE_LOGTOSTDERR="--logtostderr=true"
+
+# journal message level, 0 is debug
+KUBE_LOG_LEVEL="--v=0"
+
+# Should this cluster be allowed to run privleged docker containers
+KUBE_ALLOW_PRIV="--allow_privileged=false"
+
+KUBE_MASTER="--master=http://MASTER_PRIV_IP_ADDR:8080"
+----
+
+Add the setting for KUBE_MASTER and use the fully qualified domain name for the master in the
+URL. Make sure to substitute out the MASTER_PRIV_IP_ADDR placeholder below.
+
+==== /etc/kubernetes/controller-manager
+The controller-manager configuration file will set runtime arguments for /usr/bin/kube-
+controller-manager. The only directive that needs to be modified is KUBELET_ADDRESSES,
+which should equal a comma-separated list of node FQDNs.
+
+----
+###
+# The following values are used to configure the kubernetes controller-manager
+# defaults from config and apiserver should be adequate
+# Comma separated list of minions
+KUBELET_ADDRESSES="--machines=MINION_PRIV_IP_1,MINION_PRIV_IP_2,MINION_PRIV_IP_3"
+
+# Add your own!
+KUBE_CONTROLLER_MANAGER_ARGS=""
+----
+
+Running *kube-controller-manager --help* will display a list of all
+possible *KUBE_CONTROLLER_MANAGER_ARGS* args.
+
+==== /etc/kubernetes/apiserver
+This file is used to configure the kube-apiserver, /usr/bin/kube-apiserver.
+Set the *KUBE_API_ADDRESS=* to *0.0.0.0* so that the master apiserver
+listens on all interfaces.
+
+Change the value of *KUBE_ETCD_SERVERS* to the FQDN of the master. The value must have the
+exact format *http://FQDN:4001*.
+
+The IP range used for *KUBE_SERVICE_ADDRESSES* can be any private IP range, but make sure it
+does not conflict with ranges already in use.
+
+----
+# The address on the local server to listen to.
+KUBE_API_ADDRESS="--address=0.0.0.0"
+
+# The port on the local server to listen on.
+KUBE_API_PORT="--port=8080"
+
+# How the replication controller and scheduler find the kube-apiserver
+KUBE_ETCD_SERVERS="--etcd_servers=http://MASTER_PRIV_IP_ADDR:4001"
+
+# Port minions listen on
+KUBELET_PORT="--kubelet_port=10250"
+
+# Address range to use for services
+KUBE_SERVICE_ADDRESSES="--portal_net=10.254.0.0/16"
+
+# Add your own!
+KUBE_API_ARGS=""
+----
+
+==== Start the appropriate services on master:
+
+----
+for SERVICES in etcd kube-apiserver kube-controller-manager kube-scheduler; do
+    systemctl restart $SERVICES
+    systemctl enable $SERVICES
+    systemctl status $SERVICES
+done
+----
+
+NOTE: If you get a problem like *Unable to listen for secure (open /var/run/kubernetes/apiserver.crt: no such file or directory); will try again.*
+do the following as a workaround, I created the drop-in systemd config and it worked well.
+
+----
+# mkdir /etc/systemd/system/kube-apiserver.service.d
+cat <<'EOF' >> /etc/systemd/system/kube-apiserver.service.d/pre-start.conf
+[Service]
+PermissionsStartOnly=yes
+ExecStartPre=/usr/bin/mkdir -p /var/run/kubernetes
+ExecStartPre=/usr/bin/chown kube.kube /var/run/kubernetes
+EOF
+----
+
+=== Configure the Kubernetes nodes
+All nodes of a Kubernetes cluster should be configured the same.
+The following list of files will need to be modified:
+
+* /etc/kubernetes/config
+* /etc/kubernetes/proxy
+* /etc/kubernetes/kubelet
+* /var/lib/kubelet/auth
+
+==== /etc/kubernetes/config
+Just like on the master, /etc/kubernetes/config affects the configuration of a number of
+Kubernetes services. Configure the node to communicate with the master's apiserver, rather
+than sending communication directly to the etcd service. Comment the KUBE_ETCD_SERVERS
+line to accomplish this.
+
+----
+# Comma seperated list of nodes in the etcd cluster
+#KUBE_ETCD_SERVERS="--etcd_servers=http://127.0.0.1:4001"
+
+# How the replication controller and scheduler find the apiserver
+KUBE_MASTER="--master=http://MASTER_PRIV_IP_ADDR:8080"
+
+# logging to stderr means we get it in the systemd journal
+KUBE_LOGTOSTDERR="--logtostderr=true"
+
+# journal message level, 0 is debug
+KUBE_LOG_LEVEL="--v=0"
+
+# Should this cluster be allowed to run privleged docker containers
+KUBE_ALLOW_PRIV="--allow_privileged=false"
+----
+
+The *KUBE_MASTER* variable should be defined so that it points to TCP port 8080 of the
+Kubernetes master. Be sure to use the fully qualified domain name of the master.
+
+==== /etc/kubernetes/proxy
+The node's kube-proxy process needs to be configured so that it knows how to communicate
+with the apiserver daemon running on the master node. Edit /etc/kubernetes/proxy and
+add a line similar to the following:
+
+----
+# kubernetes proxy config
+# How the proxy finds the apiserver
+KUBE_PROXY_ARGS="--master=http://MASTER_PRIV_IP_ADDR:8080"
+----
+
+==== /etc/kubernetes/kubelet
+There are four directives that will need modification in /etc/kubernetes/kubelet:
+KUBELET_ADDRESS, KUBELET_HOSTNAME, KUBELET_ARGS, and KUBE_ETCD_SERVERS.
+
+----
+# The address for the info server to serve on (set to 0.0.0.0 or "" for all interfaces)
+KUBELET_ADDRESS="--address=0.0.0.0"
+
+# The port for the info server to serve on
+KUBELET_PORT="--port=10250"
+
+# You may leave this blank to use the actual hostname
+KUBELET_HOSTNAME="--hostname_override=MINION_X"
+
+KUBE_ETCD_SERVERS="--api_servers=http://MASTER_PRIV_IP_ADDR:8080"
+
+# Add your own!
+KUBELET_ARGS="--auth_path=/var/lib/kubelet/auth"
+----
+
+*KUBELET_ADDRESS* is set to *0.0.0.0* so that */usr/bin/kubelet* listens on all interfaces.
+
+*KUBELET_HOSTNAME* should be set to include the fully qualified domain name of the node itself.
+
+*KUBE_ETCD_SERVERS* is needed to talk to the master's *apiserver* instead of talking directly to
+etcd.
+
+==== /var/lib/kubelet/auth
+Kubernetes nodes should be configured to communicate with the master's *apiserver*
+(8080/TCP), rather than communicating with the *etcd* directly (4001/TCP).
+*kube-apiserver* on the master does not require authentication by default,
+though it could be configured to do so. The *kubelet* service on the node, however,
+does expect some authentication.
+
+*KUBELET_ARGS* is set in /etc/kubernetes/kubelet to enable authentication using the
+/var/lib/kubelet/auth file. Create an authentication file, named by the --auth_path
+option.
+
+----
+echo "{}" > /var/lib/kubelet/auth
+----
+
+Actual user and password data could be defined here if they have been configured on the
+apiserver.
+
+----
+echo '{"User": "user1", "Password": "password"}' > /var/lib/kubelet/auth
+----
+
+==== Start the appropriate services on the minions.
+
+----
+for SERVICES in kube-proxy kubelet docker; do
+    systemctl restart $SERVICES
+    systemctl enable $SERVICES
+    systemctl status $SERVICES
+done
+----
+
+NOTE: You should be finished!
+
+* Check to make sure the cluster can see the minions from the master.
+
+----
+# kubectl get minions
+NAME                LABELS              STATUS
+192.168.122.124     <none>              Ready
+192.168.122.161     <none>              Ready
+192.168.122.205     <none>              Ready
+----
+
+=== Deploy an application
+
+==== Create and deploy a pod
+
+* Create a file on master named apache.json that looks as such:
+
+----
+{
+    "apiVersion": "v1beta1",
+    "desiredState": {
+        "manifest": {
+            "containers": [
+                {
+                    "image": "fedora/apache",
+                    "name": "my-fedora-apache",
+                    "ports": [
+                        {
+                            "containerPort": 80,
+                            "protocol": "TCP"
+                        }
+                    ]
+                }
+            ],
+            "id": "apache",
+            "restartPolicy": {
+                "always": {}
+            },
+            "version": "v1beta1",
+            "volumes": null
+        }
+    },
+    "id": "apache",
+    "kind": "Pod",
+    "labels": {
+        "name": "apache"
+    },
+    "namespace": "default"
+}
+----
+
+Deploy the fedora/apache image via the apache.json file.
+
+----
+kubectl create -f apache.json
+----
+
+* This command exits immediately, returning the value of the label, apache. You can monitor progress of the operations with these commands: On the master (master) -
+
+----
+journalctl -f -l -xn -u kube-apiserver -u kube-scheduler
+----
+
+* On the node
+
+----
+journalctl -f -l -xn -u kubelet -u kube-proxy -u docker
+----
+
+After the pod is deployed, you can also list the pod. I have a few pods running here.
+
+----
+# kubectl get pods
+POD                 IP                  CONTAINER(S)        IMAGE(S)            HOST                LABELS              STATUS
+apache              18.0.53.3           my-fedora-apache    fedora/apache       192.168.121.147/    name=apache         Running
+----
+
+==== Create a service to make the pod discoverable
+Now that the pod is known to be running we need a way to find it. Pods in kubernetes may launch on any minion and get an IP addresses from flannel. So finding them is obviously not easy. You don't want people to have to look up what minion the web server is on before they can find your web page! Kubernetes solves this with a "service" By default kubernetes will create an internal IP address for the service (from the portal_net range) which pods can use to find the service. But we want the web server to be available outside the cluster. So we need to tell kubernetes how traffic will arrive into the cluster destined for this webserver. To do so we define a list of "publicIPs". These need to be actual IP addresses assigned to actual minions. In configurations like AWS or OpenStack where machines have both a public IP assigned somewhere "in the cloud" and the private IP assigned to the node, you must use the private IP. This IP must be assigned to a minion and be visable on the minion via "ip addr." This is a list, you may list multiple nodes public IP.
+
+* Create a service on the master by creating a service.json file
+
+NOTE: You must use an actual IP address for the publicIPs value or the service will not run correctly on the minions
+
+----
+{
+    "apiVersion": "v1beta1",
+    "containerPort": 80,
+    "id": "frontend",
+    "kind": "Service",
+    "labels": {
+        "name": "frontend"
+    },
+    "port": 80,
+    "publicIPs": [
+        "MINION_PRIV_IP_1"
+    ],
+    "selector": {
+        "name": "apache"
+    }
+}
+----
+
+* Load the JSON file into the kubenetes system
+
+----
+kubectl create -f service.json
+----
+
+* Check that the service is loaded on the master
+
+----
+# kubectl get services
+NAME                LABELS                                    SELECTOR            IP                  PORT
+kubernetes          component=apiserver,provider=kubernetes   <none>              10.254.101.139      443
+kubernetes-ro       component=apiserver,provider=kubernetes   <none>              10.254.243.202      80
+frontend            name=frontend                             name=apache         10.254.65.51        80
+----
+
+* Check out how it by looking at the following commands on any node.
+
+----
+iptables -nvL -t nat
+journalctl -b -l -u kube-proxy
+----
+
+
+* Finally, test that the container is actually working.
+
+----
+curl http://MINION_PRIV_IP_1/
+Apache
+----
+
+* Now really test it. If you are using OS1 you should be able to hit the web server from you web browser by going to the PUBLIC IP associated with the minion(s) you chose in your service.
+
+----
+firefox http://MINION_PUBLIC_IP_1/
+----
+
+* To delete the container.
+
+----
+kubectl delete pod apache
+----
+
+==== Create a replication controller to control the pod
+This should have the exact same definition of the pod as above, only
+now it is being controlled by a replication controller. So if you
+ delete the pod, or if the node disappears, the pod will be restarted
+ elsewhere in the cluster!
+
+* Create an rc.json file to describe the replication controller
+
+----
+{
+    "apiVersion": "v1beta1",
+    "desiredState": {
+        "podTemplate": {
+            "desiredState": {
+                "manifest": {
+                    "containers": [
+                        {
+                            "image": "fedora/apache",
+                            "name": "my-fedora-apache",
+                            "ports": [
+                                {
+                                    "containerPort": 80,
+                                    "protocol": "TCP"
+                                }
+                            ]
+                        }
+                    ],
+                    "id": "apache",
+                    "restartPolicy": {
+                        "always": {}
+                    },
+                    "version": "v1beta1",
+                    "volumes": null
+                }
+            },
+            "labels": {
+                "name": "apache"
+            }
+        },
+        "replicaSelector": {
+            "name": "apache"
+        },
+        "replicas": 1
+    },
+    "id": "apache-controller",
+    "kind": "ReplicationController",
+    "labels": {
+        "name": "apache"
+    }
+}
+----
+
+* Load the JSON file on the master
+
+
+----
+kubectl create -f rc.json
+----
+
+* Check that the replication controller has started
+
+----
+# kubectl get rc
+CONTROLLER          CONTAINER(S)        IMAGE(S)            SELECTOR            REPLICAS
+apache-controller   my-fedora-apache    fedora/apache       name=apache         1
+----
+
+* The replication controller should have spawned a pod on a minion.
+(This make take a short while, so STATUS may be Unknown at first)
+
+----
+# kubectl get pods
+POD                                    IP                  CONTAINER(S)        IMAGE(S)            HOST                LABELS              STATUS
+52228aef-be99-11e4-91e5-52540052bd24   18.0.79.4           my-fedora-apache    fedora/apache       kube-minion1/       name=apache         Running
+----
+
+Feel free to resize the replication controller and run multiple copies
+of apache. Note that the kubernetes publicIP balances between ALL of
+the replicas!
+
+----
+# kubectl resize --replicas=3 replicationController apache-controller
+resized
+
+# kubectl get rc
+CONTROLLER          CONTAINER(S)        IMAGE(S)            SELECTOR            REPLICAS
+apache-controller   my-fedora-apache    fedora/apache       name=apache         3
+
+# kubectl get pods
+POD                                    IP                  CONTAINER(S)        IMAGE(S)            HOST                LABELS              STATUS
+ac23ccfa-be99-11e4-91e5-52540052bd24   18.0.98.3           my-fedora-apache    fedora/apache       kube-minion2/       name=apache         Running
+52228aef-be99-11e4-91e5-52540052bd24   18.0.79.4           my-fedora-apache    fedora/apache       kube-minion1/       name=apache         Running
+ac22a801-be99-11e4-91e5-52540052bd24   18.0.98.2           my-fedora-apache    fedora/apache       kube-minion2/       name=apache         Running
+----
+
+I suggest you resize to 0 before you delete the replication controller.
+Deleting a replicationController will leave the pods running.
+
+
+=== Kubernetes commands
+
+* List available nodes
+
+----
+# kubectl get nodes
+NAME                LABELS              STATUS
+192.168.122.124     <none>              Ready
+192.168.122.161     <none>              Ready
+192.168.122.205     <none>              Ready
+----
+
+
+* List available pods
+
+----
+# kubectl get pods
+POD                 IP                  CONTAINER(S)        IMAGE(S)            HOST                LABELS              STATUS
+----
+
+* List available services
+
+----
+# kubectl get services
+NAME                LABELS                                    SELECTOR            IP                  PORT
+kubernetes          component=apiserver,provider=kubernetes   <none>              10.254.101.139      443
+kubernetes-ro       component=apiserver,provider=kubernetes   <none>              10.254.243.202      80
+----
+
+* List available replication controllers
+
+----
+# kubectl get replicationControllers
+CONTROLLER          CONTAINER(S)        IMAGE(S)            SELECTOR            REPLICAS
+----
+
+* Add a pod, service or replicationController
+
+----
+kubectl create -f FILE.json
+----
+
+
+== Documentation references
+https://github.com/scollier/SATraining/blob/master/deployAtomicHosts.md[Create Atomic Hosts lab]
+https://github.com/scollier/SATraining/blob/master/configFlannel.md[Configure Flannel lab]
+https://github.com/scollier/SATraining/blob/master/configKubernetes.md[Kubernetes installtion lab]
